@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎬 CineFind - Your Movie Discovery Hub</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="floating-particles" id="particles"></div>
+    
+    <div class="container">
+        <div class="header">
+            <h1 class="logo">CineFind</h1>
+            <p class="subtitle">Discover Your Next Favorite Movie</p>
+        </div>
+
+        <div class="main-card">
+            <!-- Categories Section -->
+            <div id="categories" class="categories">
+                <h2 style="text-align: center; margin-bottom: 30px; color: #333; font-size: 2rem;">Choose Your Genre</h2>
+                <div class="category-grid">
+                    <button class="category-card" data-category="action">
+                        <span class="category-icon">🎬</span>
+                        <div class="category-name">Action</div>
+                        <div class="category-desc">High-octane thrills and excitement</div>
+                    </button>
+                    <button class="category-card" data-category="comedy">
+                        <span class="category-icon">😄</span>
+                        <div class="category-name">Comedy</div>
+                        <div class="category-desc">Laughter and fun for everyone</div>
+                    </button>
+                    <button class="category-card" data-category="drama">
+                        <span class="category-icon">🎭</span>
+                        <div class="category-name">Drama</div>
+                        <div class="category-desc">Deep stories and emotions</div>
+                    </button>
+                    <button class="category-card" data-category="horror">
+                        <span class="category-icon">👻</span>
+                        <div class="category-name">Horror</div>
+                        <div class="category-desc">Spine-chilling scares</div>
+                    </button>
+                    <button class="category-card" data-category="romance">
+                        <span class="category-icon">💕</span>
+                        <div class="category-name">Romance</div>
+                        <div class="category-desc">Love stories that touch the heart</div>
+                    </button>
+                    <button class="category-card" data-category="thriller">
+                        <span class="category-icon">🔪</span>
+                        <div class="category-name">Thriller</div>
+                        <div class="category-desc">Edge-of-your-seat suspense</div>
+                    </button>
+                    <button class="category-card" data-category="sci-fi">
+                        <span class="category-icon">🚀</span>
+                        <div class="category-name">Sci-Fi</div>
+                        <div class="category-desc">Future worlds and technology</div>
+                    </button>
+                    <button class="category-card" data-category="fantasy">
+                        <span class="category-icon">🧙‍♂️</span>
+                        <div class="category-name">Fantasy</div>
+                        <div class="category-desc">Magical worlds and adventures</div>
+                    </button>
+                    <button class="category-card" data-category="adventure">
+                        <span class="category-icon">🗺️</span>
+                        <div class="category-name">Adventure</div>
+                        <div class="category-desc">Epic journeys and quests</div>
+                    </button>
+                    <button class="category-card" data-category="crime">
+                        <span class="category-icon">🕵️</span>
+                        <div class="category-name">Crime</div>
+                        <div class="category-desc">Mystery and investigation</div>
+                    </button>
+                    <button class="category-card" data-category="animation">
+                        <span class="category-icon">🎨</span>
+                        <div class="category-name">Animation</div>
+                        <div class="category-desc">Animated masterpieces</div>
+                    </button>
+                    <button class="category-card" data-category="top250">
+                        <span class="category-icon">🏆</span>
+                        <div class="category-name">Top 250</div>
+                        <div class="category-desc">All-time greatest movies</div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Loading Section -->
+            <div id="loading" class="loading">
+                <div class="spinner"></div>
+                <h3 id="loadingTitle">Finding amazing movies for you...</h3>
+                <p id="loadingMessage">This might take a moment</p>
+                <div class="progress-bar">
+                    <div class="progress-fill"></div>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div id="results" class="results">
+                <div class="results-header">
+                    <h2 class="results-title" id="resultsTitle"></h2>
+                    <p class="results-count" id="resultsCount"></p>
+                </div>
+                <div id="movieGrid" class="movie-grid"></div>
+            </div>
+
+            <!-- Controls Section -->
+            <div id="controls" class="controls">
+                <button class="btn" onclick="getRandomRecommendations()">🎲 Get 3 Random Picks</button>
+                <button class="btn btn-secondary" onclick="goBack()">🔙 Choose Another Genre</button>
+                <button class="btn" onclick="exportToCSV()">📥 Export Results</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script>
+        const API_BASE_URL = 'http://localhost:5001/api';
+        let currentMovies = [];
+        let currentCategory = '';
+
+        // Create floating particles
+        function createParticles() {
+            const particlesContainer = document.getElementById('particles');
+            for (let i = 0; i < 20; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.animationDelay = Math.random() * 15 + 's';
+                particle.style.animationDuration = (15 + Math.random() * 10) + 's';
+                particlesContainer.appendChild(particle);
+            }
+        }
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            createParticles();
+            
+            // Add event listeners to category cards
+            const categoryCards = document.querySelectorAll('.category-card');
+            categoryCards.forEach(card => {
+                card.addEventListener('click', function() {
+                    const category = this.dataset.category;
+                    searchMovies(category);
+                });
+            });
+        });
+
+        // Main function to search movies
+        async function searchMovies(category) {
+            currentCategory = category;
+            
+            // Show loading
+            document.getElementById('categories').style.display = 'none';
+            document.getElementById('loading').style.display = 'block';
+            
+            // Update loading messages
+            document.getElementById('loadingTitle').textContent = `Scraping ${category} movies from IMDb...`;
+            document.getElementById('loadingMessage').textContent = 'This usually takes 10-20 seconds';
+            
+            try {
+                // Start scraping
+                const response = await fetch(`${API_BASE_URL}/movies/${category}`);
+                const data = await response.json();
+                
+                if (data.status === 'scraping') {
+                    // Poll for results
+                    pollForResults(category);
+                } else if (data.status === 'success') {
+                    // Already cached
+                    displayResults(data.movies, category);
+                } else {
+                    showError('Failed to start scraping. Please try again.');
+                }
+                
+            } catch (error) {
+                console.error('Error:', error);
+                showError('Network error. Make sure the Flask server is running on localhost:5000');
+            }
+        }
+
+        // Poll for scraping results
+        async function pollForResults(category) {
+            const maxAttempts = 60; // 2 minutes max
+            let attempts = 0;
+            
+            const poll = async () => {
+                try {
+                    const response = await fetch(`${API_BASE_URL}/movies/${category}/status`);
+                    const data = await response.json();
+                    
+                    if (data.status === 'completed') {
+                        currentMovies = data.movies;
+                        displayResults(data.movies, category);
+                    } else if (data.status === 'error') {
+                        showError('Error occurred while scraping movies. Please try another category.');
+                    } else if (data.status === 'scraping') {
+                        attempts++;
+                        if (attempts < maxAttempts) {
+                            // Continue polling
+                            setTimeout(poll, 2000); // Check every 2 seconds
+                        } else {
+                            showError('Scraping is taking too long. Please try again later.');
+                        }
+                    }
+                    
+                } catch (error) {
+                    console.error('Polling error:', error);
+                    showError('Network error while checking status.');
+                }
+            };
+            
+            poll();
+        }
+
+        // Display results
+        function displayResults(movies, category) {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('results').style.display = 'block';
+            document.getElementById('controls').style.display = 'block';
+            
+            const categoryName = category === 'top250' ? 'Top 250 Movies' : 
+                                category.charAt(0).toUpperCase() + category.slice(1) + ' Movies';
+            
+            document.getElementById('resultsTitle').textContent = `🎬 ${categoryName}`;
+            document.getElementById('resultsCount').textContent = `Found ${movies.length} amazing movies for you`;
+            
+            const movieGrid = document.getElementById('movieGrid');
+            movieGrid.innerHTML = '';
+            
+            movies.forEach((movie, index) => {
+                const movieCard = document.createElement('div');
+                movieCard.className = 'movie-card';
+                movieCard.style.animationDelay = (index * 0.1) + 's';
+
+                // Make movie title clickable and open IMDb page
+                // Assumes movie.imdb_url exists in movie object
+                movieCard.innerHTML = `
+                    <div class="movie-rank">${movie.rank}</div>
+                    <h3 class="movie-title">
+                        <a href="${movie.imdb_url}" target="_blank" rel="noopener noreferrer">${movie.title}</a>
+                    </h3>
+                    <div class="movie-info">
+                        <span class="movie-year">${movie.year}</span>
+                        <div class="movie-rating">
+                            <span class="star">⭐</span>
+                            <span>${movie.rating}</span>
+                        </div>
+                    </div>
+                `;
+
+                movieGrid.appendChild(movieCard);
+            });
+        }
+
+        // Get random recommendations
+        async function getRandomRecommendations() {
+            if (!currentCategory) return;
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/movies/${currentCategory}/random`);
+                const data = await response.json();
+                
+                if (data.movies) {
+                    const recommendations = data.movies;
+                    const message = `🎲 Random Recommendations:\n\n${recommendations.map(movie => 
+                        `• ${movie.title} (${movie.year}) - ⭐ ${movie.rating}`
+                    ).join('\n')}`;
+                    
+                    alert(message);
+                }
+            } catch (error) {
+                console.error('Error getting recommendations:', error);
+                alert('Error getting recommendations. Please try again.');
+            }
+        }
+
+        // Export to CSV
+        async function exportToCSV() {
+            if (!currentCategory) return;
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/export/${currentCategory}`);
+                const data = await response.json();
+                
+                if (data.csv_content) {
+                    // Create and download CSV file
+                    const blob = new Blob([data.csv_content], { type: 'text/csv' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = data.filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                    
+                    alert('📥 CSV file downloaded successfully!');
+                } else {
+                    alert('Error exporting data.');
+                }
+            } catch (error) {
+                console.error('Error exporting CSV:', error);
+                alert('Error exporting CSV. Please try again.');
+            }
+        }
+
+        // Show error message
+        function showError(message) {
+            document.getElementById('loading').style.display = 'none';
+            alert('❌ ' + message);
+            goBack();
+        }
+
+        // Go back to categories
+        function goBack() {
+            document.getElementById('results').style.display = 'none';
+            document.getElementById('controls').style.display = 'none';
+            document.getElementById('categories').style.display = 'block';
+            currentMovies = [];
+            currentCategory = '';
+        }
+    </script>
+</body>
+</html>
